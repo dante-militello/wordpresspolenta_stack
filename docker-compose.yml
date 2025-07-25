@@ -1,0 +1,89 @@
+# WordPress + MariaDB Stack - Optimizado para Portainer
+# 
+# Variables de entorno configurables:
+# 
+# CONFIGURACIÓN GENERAL:
+# - STACK_NAME: Nombre base para los contenedores (default: wordpress)
+# 
+# CONFIGURACIÓN MARIADB:
+# - MARIADB_PORT: Puerto externo para MariaDB (default: 3306)
+# - MARIADB_ROOT_PASSWORD: Contraseña del usuario root (default: rootpass_change_me)
+# - MARIADB_USER: Usuario de la base de datos (default: wp_user)
+# - MARIADB_PASSWORD: Contraseña del usuario (default: wp_pass_change_me)
+# - MARIADB_DATABASE: Nombre de la base de datos (default: wordpress_db)
+# 
+# CONFIGURACIÓN WORDPRESS:
+# - WORDPRESS_HTTP_PORT: Puerto HTTP (default: 8080)
+# - WORDPRESS_HTTPS_PORT: Puerto HTTPS (default: 8443)
+# - WORDPRESS_USERNAME: Usuario administrador (default: admin)
+# - WORDPRESS_PASSWORD: Contraseña administrador (default: admin_password_change_me)
+# - WORDPRESS_EMAIL: Email del administrador (default: admin@example.com)
+# - WORDPRESS_FIRST_NAME: Nombre del administrador (default: Admin)
+# - WORDPRESS_LAST_NAME: Apellido del administrador (default: User)
+# - WORDPRESS_BLOG_NAME: Nombre del sitio web (default: Mi Sitio WordPress)
+
+services:
+  mariadb:
+    image: 'bitnami/mariadb:latest'
+    container_name: ${STACK_NAME:-wordpress}_mariadb
+    ports:
+      - '${MARIADB_PORT:-3306}:3306'
+    volumes:
+      - mariadb_data:/bitnami/mariadb
+    environment:
+      - ALLOW_EMPTY_PASSWORD=no
+      - MARIADB_ROOT_PASSWORD=${MARIADB_ROOT_PASSWORD:-rootpass_change_me}
+      - MARIADB_USER=${MARIADB_USER:-wp_user}
+      - MARIADB_PASSWORD=${MARIADB_PASSWORD:-wp_pass_change_me}
+      - MARIADB_DATABASE=${MARIADB_DATABASE:-wordpress_db}
+    healthcheck:
+      test: ['CMD', '/opt/bitnami/scripts/mariadb/healthcheck.sh']
+      interval: 15s
+      timeout: 5s
+      retries: 6
+    restart: unless-stopped
+    networks:
+      - wordpress_network
+
+  wordpress:
+    image: 'bitnami/wordpress:latest'
+    container_name: ${STACK_NAME:-wordpress}_wordpress
+    ports:
+      - '${WORDPRESS_HTTP_PORT:-8080}:8080'
+      - '${WORDPRESS_HTTPS_PORT:-8443}:8443'
+    volumes:
+      - wordpress_data:/bitnami/wordpress
+    depends_on:
+      - mariadb
+    environment:
+      - ALLOW_EMPTY_PASSWORD=no
+      - WORDPRESS_DATABASE_HOST=mariadb
+      - WORDPRESS_DATABASE_PORT_NUMBER=3306
+      - WORDPRESS_DATABASE_USER=${MARIADB_USER:-wp_user}
+      - WORDPRESS_DATABASE_PASSWORD=${MARIADB_PASSWORD:-wp_pass_change_me}
+      - WORDPRESS_DATABASE_NAME=${MARIADB_DATABASE:-wordpress_db}
+      - WORDPRESS_USERNAME=${WORDPRESS_USERNAME:-admin}
+      - WORDPRESS_PASSWORD=${WORDPRESS_PASSWORD:-admin_password_change_me}
+      - WORDPRESS_EMAIL=${WORDPRESS_EMAIL:-admin@example.com}
+      - WORDPRESS_FIRST_NAME=${WORDPRESS_FIRST_NAME:-Admin}
+      - WORDPRESS_LAST_NAME=${WORDPRESS_LAST_NAME:-User}
+      - WORDPRESS_BLOG_NAME=${WORDPRESS_BLOG_NAME:-Mi Sitio WordPress}
+      - WORDPRESS_SKIP_BOOTSTRAP=no
+    healthcheck:
+      test: ['CMD', 'wget', '--no-verbose', '--tries=1', '--spider', 'http://localhost:8080/wp-login.php']
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - wordpress_network
+
+volumes:
+  mariadb_data:
+    driver: local
+  wordpress_data:
+    driver: local
+
+networks:
+  wordpress_network:
+    driver: bridge
